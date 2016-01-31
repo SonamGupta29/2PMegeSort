@@ -18,6 +18,7 @@ public class Init
 	public static Vector <String> sortColumnList;
 	public static long mainMemorySize;
 	public static long sizeOfRecord = 0;
+	public static long BLOCK_SIZE = 0;
 	static HashMap<String, String> tableSchema = new HashMap<String, String>();
 	
 	private static void ___parseInput(String[] args) {
@@ -102,17 +103,17 @@ public class Init
 					tableSchema.put(temp[0],temp[1]);
 					if(temp[1].trim().contains("char")) {
 						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 2);
-						sizeOfRecord += (Long.parseLong(temp[1]) * 2); //Character is 2B in java
+						sizeOfRecord += Long.parseLong(temp[1]);
 					}else if(temp[1].trim().contains("date")) {
-						sizeOfRecord += (6 * 2);  //Character is 2B in java
+						sizeOfRecord += 10;
 					}else if(temp[1].trim().contains("int")) {
-						sizeOfRecord += 4;  //Int is 4B in java
+						sizeOfRecord += 4;  //on average int will have 4B in file 
 					}else {
 						System.out.println("Wrong formatted metadata file");
 						System.exit(0);
 						break;	
 					}
-					sizeOfRecord += 2; //for the comma
+					sizeOfRecord += 1; //for the comma
 				}catch(Exception e) {
 					System.out.println("Wrong formatted metadata file");
 					System.exit(0);
@@ -122,11 +123,68 @@ public class Init
 			System.err.println("Unable to read metadata file \"" + metaFile + "\"");
 		}
 		//Loop will add size for one extra comma after EOL, substract it
-		sizeOfRecord -= 2;
+		sizeOfRecord -= 1;
 		
-		System.out.println("File Size : " + f.length());
+		//Consider the new line character at the end of line
+		sizeOfRecord += 1;
+		
+		//Get the total number of records that can be fit in a main memory
+		BLOCK_SIZE = (mainMemorySize*1024*1024)/sizeOfRecord;
+		
 		System.out.println("RecordSize : " + sizeOfRecord +"B");
+		System.out.println("Block size : " + BLOCK_SIZE);
 	}
+
+	private static void beginSort()
+	{
+		/*	I know that my main memory size is give through command line
+		 * 	read the file till the main memory size and sort that data based on the parameter asked
+		 * 	how to know that I have read the file till main memory size
+		 * 	I need to consider M/R records only to sort into the main memory
+		 * 	Total main memory size/single record size = total records that can be fit into the main memory
+		 * 	start reading the file and once we reach the "Total records that can be fit into the main memory"
+		 * 	sort that data and create a file for that
+		 */
+		
+		long noOfRecordsInFile = 0;
+		BufferedReader bfr = null;
+		File f = null;
+		
+		f = new File(inputFile);
+		
+		System.out.println(inputFile + " : " + f.length());
+		noOfRecordsInFile = f.length() / sizeOfRecord;
+		System.out.println("Number of records in file : " + noOfRecordsInFile + "(on average)");
+		
+		if(noOfRecordsInFile / BLOCK_SIZE > BLOCK_SIZE  - 1) {
+			System.err.println("Input file is large. Can cause 3 phase merge sort\nExiting...");
+			System.exit(0);
+		}
+		
+		System.out.println("Total intermediate files that can be made : " + (f.length() / sizeOfRecord) / BLOCK_SIZE);
+		
+		try {			
+			bfr = new BufferedReader(new FileReader(new File(inputFile)));
+			//Read the records till the BLOCK SIZE - 1
+			
+		} catch (FileNotFoundException e) {
+			System.err.println("\""+inputFile+"\" not found	.");
+			System.exit(0);
+		}
+		
+		//Check if the two phase merge sort is possible or not
+		
+		//BLOCK_SIZE = mainMemorySize /
+		
+		
+		
+		
+		
+	}
+	
+	
+	
+	
 	
 	public static void main(String[] args) 
 	{
@@ -140,8 +198,7 @@ public class Init
 		readMetaFile();
 		
 		//Begin sorting
-		
-			
+		beginSort();	
 		
 		long endTime = System.currentTimeMillis();
 		System.out.println("Execution Time : " + (endTime - startTime)/1000 +" sec.");
