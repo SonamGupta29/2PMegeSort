@@ -2,7 +2,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Vector;
 
@@ -19,9 +23,9 @@ public class Init
 	public static long mainMemorySize;
 	public static long sizeOfRecord = 0;
 	public static long BLOCK_SIZE = 0;
-	static HashMap<String, String> tableSchema = new HashMap<String, String>();
+	static Vector<String> tableSchema = new Vector<String>();
 	
-	private static void ___parseInput(String[] args) {
+	private static void parseInput(String[] args) {
 		/*	Parse the command line arguments here and make them static 
 		 * 	so that they can be used anywhere in the program  
 		 */
@@ -100,14 +104,14 @@ public class Init
 			while((line = freader.readLine()) != null) {
 				String temp[] = line.split(",");
 				try{
-					tableSchema.put(temp[0],temp[1]);
+					tableSchema.add(temp[0]);
 					if(temp[1].trim().contains("char")) {
 						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 2);
 						sizeOfRecord += Long.parseLong(temp[1]);
 					}else if(temp[1].trim().contains("date")) {
 						sizeOfRecord += 10;
 					}else if(temp[1].trim().contains("int")) {
-						sizeOfRecord += 4;  //on average int will have 4B in file 
+						sizeOfRecord += 10;  //on average int will have 4B in file 
 					}else {
 						System.out.println("Wrong formatted metadata file");
 						System.exit(0);
@@ -149,6 +153,10 @@ public class Init
 		long noOfRecordsInFile = 0;
 		BufferedReader bfr = null;
 		File f = null;
+		String line = null;
+		int lineCounter = 0, blockCounter = 0;
+		ArrayList <String> blockList = null;
+		ArrayList <String> intermediateFileList = null;
 		
 		f = new File(inputFile);
 		
@@ -166,33 +174,71 @@ public class Init
 		try {			
 			bfr = new BufferedReader(new FileReader(new File(inputFile)));
 			//Read the records till the BLOCK SIZE - 1
-			
-		} catch (FileNotFoundException e) {
+			blockList = new ArrayList<>();
+			intermediateFileList = new ArrayList<>();
+			while((line = bfr.readLine()) != null ){				
+				if(lineCounter == BLOCK_SIZE - 1){
+					blockCounter++;
+					intermediateFileList.add(sortNCreateTempFile(blockList, blockCounter));
+					
+					//Reset the variable
+					lineCounter = 0;
+					blockList.clear();
+				}
+				blockList.add(line);
+				lineCounter++;
+			}
+			//Check if final lineCounter value is less than the BLOCK SIZE, then create the file for the remaining data 
+			if(lineCounter < BLOCK_SIZE - 1){
+				blockCounter++;
+				intermediateFileList.add(sortNCreateTempFile(blockList, blockCounter));
+				lineCounter = 0;
+			}
+		} catch (IOException e) {
 			System.err.println("\""+inputFile+"\" not found	.");
 			System.exit(0);
 		}
 		
-		//Check if the two phase merge sort is possible or not
-		
-		//BLOCK_SIZE = mainMemorySize /
-		
-		
-		
-		
-		
+		//Printing the file list
+		System.out.println("Temporary file list : ");
+		for(int i = 0; i < blockCounter; i++){
+			System.out.println(intermediateFileList.get(i));
+		}
 	}
 	
-	
-	
-	
-	
+	private static String sortNCreateTempFile(ArrayList<String> blockList, int fileCount) {
+		String fileName = "i_".concat(String.valueOf(fileCount));
+		
+		Collections.sort(blockList, new Comparator<String>() {
+				@Override
+				public int compare(String s1, String s2) {
+					return Integer.parseInt(s1.split(",")[2]) < Integer.parseInt(s2.split(",")[2]) ? -1 : Integer.parseInt(s1.split(",")[2]) == Integer.parseInt(s2.split(",")[2]) ? 0 : 1;
+				
+		      }
+		    });
+		
+		FileWriter fwr = null;
+		//create a intermediate file
+		try {
+			fwr = new FileWriter(fileName);
+			for(int i = 0; i < blockList.size(); i++){
+				fwr.write(blockList.get(i)+"\n");
+			}
+			fwr.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
+		return fileName;
+	}
+
 	public static void main(String[] args) 
 	{
 		//Calculate the execution time
 		long startTime = System.currentTimeMillis();
 		
 		//Parse the input
-		___parseInput(args);
+		parseInput(args);
 		
 		//Read meta file in hash
 		readMetaFile();
