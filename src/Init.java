@@ -20,8 +20,7 @@ public class Init
 	public static long sizeOfRecord = 0;
 	static HashMap<String, String> tableSchema = new HashMap<String, String>();
 	
-	private static void ___parseInput(String[] args) 
-	{
+	private static void ___parseInput(String[] args) {
 		/*	Parse the command line arguments here and make them static 
 		 * 	so that they can be used anywhere in the program  
 		 */
@@ -30,13 +29,11 @@ public class Init
 		 *  "./mysort --­­meta_file metafile.txt --­­input_file input.txt ­­--output_file output.txt --­­output_column 
 		 *	col1,col2 --­­sort_column col1,col2 --­­mm 1040 ­­--order asc"		  
 		 */
-		
-		//Check for the count
-		
+
 		int argLength = args.length;
 		
-		if(argLength != 14)
-		{
+		//Check for the count
+		if(argLength != 14) {
 			 System.err.println("Error!!! Invalid arguments.");
 			 System.err.println("Usage : /n\"Init --meta_file <fileName> --input_file <fileName> ­--output_file <fileName> " +
 			 					 "­--output_column <col1,col2,...> --sort_column <col1,col2,...> --mm <size in MB> --order <asc/desc>\"");
@@ -44,41 +41,39 @@ public class Init
 		}
 		
 		//Extract the command line switches
-		for(int i = 0; i < argLength; i++)
-		{
-			switch(args[i].trim())
-			{
+		for(int i = 0; i < argLength; i++) {
+			switch(args[i].trim()) {
 				case "--meta_file":
-							metaFile = args[++i].trim();
-							break;
+						metaFile = args[++i].trim();
+						break;
 				case "--input_file":
-							inputFile = args[++i].trim();
-							break;
+						inputFile = args[++i].trim();
+						break;
 				case "--output_file":
-							outputFile = args[++i].trim();
-							break;
+						outputFile = args[++i].trim();
+						break;
 				case "--output_column":
-							String tempList[] = args[++i].trim().split(",");
-							outputColumnList = new Vector <String>();
-							for(int j = 0; j < tempList.length; j++)
-								outputColumnList.add(tempList[j]);
-							break;
+						String tempList[] = args[++i].trim().split(",");
+						outputColumnList = new Vector <String>();
+						for(int j = 0; j < tempList.length; j++)
+							outputColumnList.add(tempList[j]);
+						break;
 				case "--sort_column":
-							String tempList2[] = args[++i].trim().split(",");
-							sortColumnList = new Vector <String>();
-							for(int j = 0; j < tempList2.length; j++)
-								sortColumnList.add(tempList2[j]);
-							break;
+						String tempList2[] = args[++i].trim().split(",");
+						sortColumnList = new Vector <String>();
+						for(int j = 0; j < tempList2.length; j++)
+							sortColumnList.add(tempList2[j]);
+						break;
 				case "--mm":
-							mainMemorySize = Integer.parseInt(args[++i].trim());
-							break;
+						mainMemorySize = Integer.parseInt(args[++i].trim());
+						break;
 				case "--order":
-							sortOrder = args[++i];
-							break;
+						sortOrder = args[++i];
+						break;
 				default:
-							System.err.println("Error in arguments...");
-							System.exit(0);
-							break;
+						System.err.println("Error in arguments...");
+						System.exit(0);
+						break;
 			}
 		}
 		System.out.println("metaFileName : " + metaFile );
@@ -101,31 +96,24 @@ public class Init
 		}
 		String line = null;
 		try {
-			while((line = freader.readLine()) != null)
-			{
+			while((line = freader.readLine()) != null) {
 				String temp[] = line.split(",");
 				try{
 					tableSchema.put(temp[0],temp[1]);
-					if(temp[1].trim().contains("char"))
-					{
+					if(temp[1].trim().contains("char")) {
 						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 2);
-						sizeOfRecord += Long.parseLong(temp[1]);
-					}
-					else if(temp[1].trim().contains("date"))
-					{
-						sizeOfRecord += 6;
-					}
-					else if(temp[1].trim().contains("int"))
-					{
-						sizeOfRecord += 4;
-					}
-					else
-					{
+						sizeOfRecord += (Long.parseLong(temp[1]) * 2); //Character is 2B in java
+					}else if(temp[1].trim().contains("date")) {
+						sizeOfRecord += (6 * 2);  //Character is 2B in java
+					}else if(temp[1].trim().contains("int")) {
+						sizeOfRecord += 4;  //Int is 4B in java
+					}else {
 						System.out.println("Wrong formatted metadata file");
 						System.exit(0);
 						break;	
 					}
-				}catch(Exception e){
+					sizeOfRecord += 2; //for the comma
+				}catch(Exception e) {
 					System.out.println("Wrong formatted metadata file");
 					System.exit(0);
 				}
@@ -133,11 +121,12 @@ public class Init
 		} catch (IOException e) {
 			System.err.println("Unable to read metadata file \"" + metaFile + "\"");
 		}
-		System.out.println("File Size : " + f.length());
-		System.out.println("RecordSize : " + sizeOfRecord);
+		//Loop will add size for one extra comma after EOL, substract it
+		sizeOfRecord -= 2;
 		
+		System.out.println("File Size : " + f.length());
+		System.out.println("RecordSize : " + sizeOfRecord +"B");
 	}
-	
 	
 	public static void main(String[] args) 
 	{
@@ -150,8 +139,11 @@ public class Init
 		//Read meta file in hash
 		readMetaFile();
 		
+		//Begin sorting
+		
+			
+		
 		long endTime = System.currentTimeMillis();
 		System.out.println("Execution Time : " + (endTime - startTime)/1000 +" sec.");
 	}
 }
-
