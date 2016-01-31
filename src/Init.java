@@ -4,6 +4,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -204,18 +207,46 @@ public class Init
 		for(int i = 0; i < blockCounter; i++){
 			System.out.println(intermediateFileList.get(i));
 		}
+		
+		//Sort and merge the intermediate files
+		
+		
 	}
 	
 	private static String sortNCreateTempFile(ArrayList<String> blockList, int fileCount) {
 		String fileName = "i_".concat(String.valueOf(fileCount));
 		
-		Collections.sort(blockList, new Comparator<String>() {
+		//For sorting integer data
+		/*Collections.sort(blockList, new Comparator<String>() {
 				@Override
 				public int compare(String s1, String s2) {
-					return Integer.parseInt(s1.split(",")[2]) < Integer.parseInt(s2.split(",")[2]) ? -1 : Integer.parseInt(s1.split(",")[2]) == Integer.parseInt(s2.split(",")[2]) ? 0 : 1;
-				
+					return 	Integer.parseInt(s1.split(",")[2]) < Integer.parseInt(s2.split(",")[2]) ? -1 : 
+							Integer.parseInt(s1.split(",")[2]) == Integer.parseInt(s2.split(",")[2]) ? 0 : 1;				
 		      }
-		    });
+		    });*/
+		
+		//For sorting date data
+		/*Collections.sort(blockList, new Comparator<String>() {
+	        	DateFormat f = new SimpleDateFormat("dd/MM/yyyy");
+	        	@Override
+	        	public int compare(String s1, String s2) {
+	            try {
+	                return f.parse(s1.split(",")[0]).compareTo(f.parse(s2.split(",")[0]));
+	            } catch (ParseException e) {
+	                throw new IllegalArgumentException(e);
+	            }
+	        }
+		});*/
+		
+		//For sorting string data
+		Collections.sort(blockList, new Comparator<String>() {
+	        	@Override
+	        	public int compare(String s1, String s2) {
+	                return s1.split(",")[1].compareTo(s2.split(",")[1]);
+	        }
+		});
+				
+		
 		
 		FileWriter fwr = null;
 		//create a intermediate file
@@ -226,7 +257,6 @@ public class Init
 			}
 			fwr.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}		
 		return fileName;
