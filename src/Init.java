@@ -208,7 +208,7 @@ public class Init
 			}
 		} catch (IOException e) {
 			System.err.println("\""+inputFile+"\" not found	.");
-			System.exit(0);
+			System.exit(0);	
 		}
 		
 		//Printing the file list
@@ -229,27 +229,32 @@ public class Init
 			@Override
 			public int compare(String s1, String s2){
 				int indexToSort = 0;
-				for(int i = 0; i < getSortColumnListSize(); i++)
-				{
+				for(int i = 0; i < getSortColumnListSize(); i++) {
 					indexToSort = getIndexOfSortColumn(getSortColumnName(i));
-					if(!s1.split(",")[indexToSort].equals(s2.split(",")[indexToSort])){
+					if(!s1.split(",")[indexToSort].equals(s2.split(",")[indexToSort])) {
 						break;
 					}
 				}
 				//System.out.println(indexToSort);
 				if(getDataTypeOfColumn(indexToSort).contains("int")){
 						if(Integer.parseInt(s1.split(",")[indexToSort]) < Integer.parseInt(s2.split(",")[indexToSort]))
-							return -1;
+							return (sortOrder.equals("desc")? 1 : -1);
 						else if(Integer.parseInt(s1.split(",")[indexToSort]) == Integer.parseInt(s2.split(",")[indexToSort]))
 							return 0;
 						else
-							return 1;
+							return (sortOrder.equals("desc")? -1 : 1);
 				} else if(getDataTypeOfColumn(indexToSort).contains("char")) {
 						return s1.split(",")[indexToSort].compareTo(s2.split(",")[indexToSort]);
 				} else if(getDataTypeOfColumn(indexToSort).contains("date")) {
 						DateFormat f = new SimpleDateFormat("dd/MM/yyyy");
 						try {
-							return f.parse(s1.split(",")[indexToSort]).compareTo(f.parse(s2.split(",")[indexToSort]));
+							int ret = f.parse(s1.split(",")[indexToSort]).compareTo(f.parse(s2.split(",")[indexToSort]));
+							if(ret == -1)
+								return (sortOrder.equals("desc")? 1 : -1);
+							else if(ret == 1)
+								return (sortOrder.equals("desc")? -1 : 1);
+							else
+								return 0;
 						} catch (ParseException e1) {
 							e1.printStackTrace();
 						}
@@ -285,9 +290,8 @@ public class Init
 	public static int getIndexOfSortColumn(String colName){
 		
 		int index = 0;
-		for(index = 0; index < tableColNames.size(); index++)
-		{
-			if(tableColNames.get(index).equals(colName)){
+		for(index = 0; index < tableColNames.size(); index++) {
+			if(tableColNames.get(index).equals(colName)) {
 				return index;
 			}
 		}
