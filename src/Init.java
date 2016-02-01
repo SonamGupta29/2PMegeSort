@@ -10,7 +10,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Vector;
 
 /**
@@ -26,9 +25,11 @@ public class Init
 	public static long mainMemorySize;
 	public static long sizeOfRecord = 0;
 	public static long BLOCK_SIZE = 0;
-	static Vector<String> tableSchema = new Vector<String>();
+	public static Vector <String> tableColNames;
+	public static Vector <String> tableColDataTypes;
 	
 	private static void parseInput(String[] args) {
+		
 		/*	Parse the command line arguments here and make them static 
 		 * 	so that they can be used anywhere in the program  
 		 */
@@ -103,23 +104,30 @@ public class Init
 			System.err.println("Unable to read metadata file \"" + metaFile + "\"");
 		}
 		String line = null;
+		tableColNames = new Vector <String>();
+		tableColDataTypes = new Vector <String>();
+		int lineCount = 0;
 		try {
 			while((line = freader.readLine()) != null) {
 				String temp[] = line.split(",");
 				try{
-					tableSchema.add(temp[0]);
+					// Get the max record size; so that we will divide the file size by the single record size
+					// and get the total number of records in the file
+					tableColNames.add(lineCount, temp[0].toString().trim());
+					tableColDataTypes.add(lineCount, temp[1]);
 					if(temp[1].trim().contains("char")) {
 						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 2);
 						sizeOfRecord += Long.parseLong(temp[1]);
 					}else if(temp[1].trim().contains("date")) {
-						sizeOfRecord += 10;
+						sizeOfRecord += 10; 
 					}else if(temp[1].trim().contains("int")) {
-						sizeOfRecord += 10;  //on average int will have 4B in file 
+						sizeOfRecord += 10;  
 					}else {
 						System.out.println("Wrong formatted metadata file");
 						System.exit(0);
 						break;	
 					}
+					lineCount++;
 					sizeOfRecord += 1; //for the comma
 				}catch(Exception e) {
 					System.out.println("Wrong formatted metadata file");
@@ -140,6 +148,7 @@ public class Init
 		
 		System.out.println("RecordSize : " + sizeOfRecord +"B");
 		System.out.println("Block size : " + BLOCK_SIZE);
+	
 	}
 
 	private static void beginSort()
@@ -174,7 +183,7 @@ public class Init
 		
 		System.out.println("Total intermediate files that can be made : " + (f.length() / sizeOfRecord) / BLOCK_SIZE);
 		
-		try {			
+		try {
 			bfr = new BufferedReader(new FileReader(new File(inputFile)));
 			//Read the records till the BLOCK SIZE - 1
 			blockList = new ArrayList<>();
@@ -207,47 +216,48 @@ public class Init
 		for(int i = 0; i < blockCounter; i++){
 			System.out.println(intermediateFileList.get(i));
 		}
-		
 		//Sort and merge the intermediate files
 		
 		
 	}
 	
-	private static String sortNCreateTempFile(ArrayList<String> blockList, int fileCount) {
+	public static String sortNCreateTempFile(ArrayList<String> blockList, int fileCount) {
+		
 		String fileName = "i_".concat(String.valueOf(fileCount));
-		
-		//For sorting integer data
-		/*Collections.sort(blockList, new Comparator<String>() {
-				@Override
-				public int compare(String s1, String s2) {
-					return 	Integer.parseInt(s1.split(",")[2]) < Integer.parseInt(s2.split(",")[2]) ? -1 : 
-							Integer.parseInt(s1.split(",")[2]) == Integer.parseInt(s2.split(",")[2]) ? 0 : 1;				
-		      }
-		    });*/
-		
-		//For sorting date data
-		/*Collections.sort(blockList, new Comparator<String>() {
-	        	DateFormat f = new SimpleDateFormat("dd/MM/yyyy");
-	        	@Override
-	        	public int compare(String s1, String s2) {
-	            try {
-	                return f.parse(s1.split(",")[0]).compareTo(f.parse(s2.split(",")[0]));
-	            } catch (ParseException e) {
-	                throw new IllegalArgumentException(e);
-	            }
-	        }
-		});*/
-		
-		//For sorting string data
-		Collections.sort(blockList, new Comparator<String>() {
-	        	@Override
-	        	public int compare(String s1, String s2) {
-	                return s1.split(",")[1].compareTo(s2.split(",")[1]);
-	        }
+		Collections.sort(blockList, new Comparator<String>(){
+
+			@Override
+			public int compare(String s1, String s2){
+				int indexToSort = 0;
+				for(int i = 0; i < getSortColumnListSize(); i++)
+				{
+					indexToSort = getIndexOfSortColumn(getSortColumnName(i));
+					if(!s1.split(",")[indexToSort].equals(s2.split(",")[indexToSort])){
+						break;
+					}
+				}
+				//System.out.println(indexToSort);
+				if(getDataTypeOfColumn(indexToSort).contains("int")){
+						if(Integer.parseInt(s1.split(",")[indexToSort]) < Integer.parseInt(s2.split(",")[indexToSort]))
+							return -1;
+						else if(Integer.parseInt(s1.split(",")[indexToSort]) == Integer.parseInt(s2.split(",")[indexToSort]))
+							return 0;
+						else
+							return 1;
+				} else if(getDataTypeOfColumn(indexToSort).contains("char")) {
+						return s1.split(",")[indexToSort].compareTo(s2.split(",")[indexToSort]);
+				} else if(getDataTypeOfColumn(indexToSort).contains("date")) {
+						DateFormat f = new SimpleDateFormat("dd/MM/yyyy");
+						try {
+							return f.parse(s1.split(",")[indexToSort]).compareTo(f.parse(s2.split(",")[indexToSort]));
+						} catch (ParseException e1) {
+							e1.printStackTrace();
+						}
+				}
+				return 0;
+			}	
 		});
 				
-		
-		
 		FileWriter fwr = null;
 		//create a intermediate file
 		try {
@@ -261,11 +271,40 @@ public class Init
 		}		
 		return fileName;
 	}
-
+	
+	public static int getSortColumnListSize(){
+		
+		return sortColumnList.size();
+	}
+	
+	public static String getSortColumnName(int index){
+		
+		return sortColumnList.get(index);
+	}
+	
+	public static int getIndexOfSortColumn(String colName){
+		
+		int index = 0;
+		for(index = 0; index < tableColNames.size(); index++)
+		{
+			if(tableColNames.get(index).equals(colName)){
+				return index;
+			}
+		}
+		return -1;
+			
+	}
+	public static String getDataTypeOfColumn(int index){
+		
+		return tableColDataTypes.get(index);
+	}
+	
 	public static void main(String[] args) 
 	{
 		//Calculate the execution time
 		long startTime = System.currentTimeMillis();
+		
+		Init init =  new Init();
 		
 		//Parse the input
 		parseInput(args);
