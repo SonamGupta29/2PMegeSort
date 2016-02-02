@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -10,10 +11,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Vector;
 
 /**
- * @author ganesh
+ * @author Ganesh Borle
  *
  */
 
@@ -168,7 +171,7 @@ public class Init
 		String line = null;
 		int lineCounter = 0, blockCounter = 0;
 		ArrayList <String> blockList = null;
-		ArrayList <String> intermediateFileList = null;
+		List<File> intermediateFileList = null;
 		
 		f = new File(inputFile);
 		
@@ -191,7 +194,7 @@ public class Init
 			while((line = bfr.readLine()) != null ){				
 				if(lineCounter == BLOCK_SIZE - 1){
 					blockCounter++;
-					intermediateFileList.add(sortNCreateTempFile(blockList, blockCounter));
+					intermediateFileList.add(new File(sortNCreateTempFile(blockList, blockCounter)));
 					
 					//Reset the variable
 					lineCounter = 0;
@@ -203,7 +206,7 @@ public class Init
 			//Check if final lineCounter value is less than the BLOCK SIZE, then create the file for the remaining data 
 			if(lineCounter < BLOCK_SIZE - 1){
 				blockCounter++;
-				intermediateFileList.add(sortNCreateTempFile(blockList, blockCounter));
+				intermediateFileList.add(new File(sortNCreateTempFile(blockList, blockCounter)));
 				lineCounter = 0;
 			}
 		} catch (IOException e) {
@@ -216,9 +219,13 @@ public class Init
 		for(int i = 0; i < blockCounter; i++){
 			System.out.println(intermediateFileList.get(i));
 		}
+		
 		//Sort and merge the intermediate files
-		
-		
+		try {
+			System.out.println(mergeSortedFiles(intermediateFileList, new File(outputFile)));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}		
 	}
 	
 	public static String sortNCreateTempFile(ArrayList<String> blockList, int fileCount) {
@@ -303,12 +310,87 @@ public class Init
 		return tableColDataTypes.get(index);
 	}
 	
+	public static long getBlockSize(){
+		
+		return BLOCK_SIZE;
+	}
+	
+	
+	public static int mergeSortedFiles(List<File> files, File outputfile) throws IOException {
+		
+		PriorityQueue<BinaryFileBuffer> pq = new PriorityQueue<BinaryFileBuffer>((int)getBlockSize() - 1, 
+				new Comparator<BinaryFileBuffer>() {
+					public int compare(BinaryFileBuffer i, BinaryFileBuffer j) {
+								String s1 =	i.peek();  
+								String s2 = j.peek();
+									int indexToSort = 0;
+									for(int iterator = 0; iterator < getSortColumnListSize(); iterator++) {
+										indexToSort = getIndexOfSortColumn(getSortColumnName(iterator));
+										if(!s1.split(",")[indexToSort].equals(s2.split(",")[indexToSort])) {
+											break;
+										}
+									}
+									if(getDataTypeOfColumn(indexToSort).contains("int")){
+											if(Integer.parseInt(s1.split(",")[indexToSort]) < Integer.parseInt(s2.split(",")[indexToSort]))
+												return (sortOrder.equals("desc")? 1 : -1);
+											else if(Integer.parseInt(s1.split(",")[indexToSort]) == Integer.parseInt(s2.split(",")[indexToSort]))
+												return 0;
+											else
+												return (sortOrder.equals("desc")? -1 : 1);
+									} else if(getDataTypeOfColumn(indexToSort).contains("char")) {
+											return s1.split(",")[indexToSort].compareTo(s2.split(",")[indexToSort]);
+									} else if(getDataTypeOfColumn(indexToSort).contains("date")) {
+											DateFormat f = new SimpleDateFormat("dd/MM/yyyy");
+											try {
+												int ret = f.parse(s1.split(",")[indexToSort]).compareTo(f.parse(s2.split(",")[indexToSort]));
+												if(ret == -1)
+													return (sortOrder.equals("desc")? 1 : -1);
+												else if(ret == 1)
+													return (sortOrder.equals("desc")? -1 : 1);
+												else
+													return 0;
+											} catch (ParseException e1) {
+												e1.printStackTrace();
+											}
+									}
+									return 0;
+								}	
+							});
+		
+		for (File f : files) {
+			BinaryFileBuffer bfb = new BinaryFileBuffer(f);
+			pq.add(bfb);
+		}
+		BufferedWriter fbw = new BufferedWriter(new FileWriter(outputfile));
+		int rowcounter = 0;
+		try {
+			while(pq.size() > 0) {
+				BinaryFileBuffer bfb = pq.poll();
+				String r = bfb.pop();
+				fbw.write(r);
+				fbw.newLine();
+				++rowcounter;
+				if(bfb.empty()) {
+					bfb.fbr.close();
+					bfb.originalfile.delete();// we don't need you anymore
+				} else {
+					pq.add(bfb); // add it back
+		        }
+		    }
+		} catch(Exception e) {
+			System.out.println(e.printStackTrace());
+		} finally { 
+			fbw.close();
+			for(BinaryFileBuffer bfb : pq ) 
+				bfb.close();
+		}
+		return rowcounter;
+	}
+	
 	public static void main(String[] args) 
 	{
 		//Calculate the execution time
 		long startTime = System.currentTimeMillis();
-		
-		Init init =  new Init();
 		
 		//Parse the input
 		parseInput(args);
