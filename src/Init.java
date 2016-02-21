@@ -111,7 +111,7 @@ public class Init
 		System.out.println("outputFile : " + outputFile );
 		System.out.println("outputColumnList : " + outputColumnList.toString());
 		System.out.println("sortColumnList : " + sortColumnList.toString() );
-		System.out.println("mainMemorySize : " + mainMemorySize );
+		System.out.println("mainMemorySize : " + mainMemorySize + " M");
 		System.out.println("sortOrder : " + sortOrder );
 	}
 
@@ -137,12 +137,13 @@ public class Init
 					tableColNames.add(lineCount, temp[0].toString().trim());
 					tableColDataTypes.add(lineCount, temp[1]);
 					if(temp[1].trim().contains("char")) {
-						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 2);
+						temp[1] = temp[1].substring(temp[1].indexOf("char(") + 5 , temp[1].length() - 1);
+						System.out.println("Size of char : " + temp[1]);
 						sizeOfRecord += Long.parseLong(temp[1]);
 					}else if(temp[1].trim().contains("date")) {
 						sizeOfRecord += 10; 
 					}else if(temp[1].trim().contains("int")) {
-						sizeOfRecord += 10;  
+						sizeOfRecord += 6;  
 					}else {
 						System.out.println("Wrong formatted metadata file");
 						System.exit(0);
@@ -165,10 +166,10 @@ public class Init
 		sizeOfRecord += 1;
 
 		//Get the total number of records that can be fit in a main memory
-		BLOCK_SIZE = (mainMemorySize*1024*1024)/sizeOfRecord;
+		BLOCK_SIZE = (mainMemorySize * 1024 * 1024) / sizeOfRecord;
 
-		System.out.println("RecordSize : " + sizeOfRecord +"B");
-		System.out.println("Block size : " + BLOCK_SIZE);
+		System.out.println("RecordSize : " + sizeOfRecord + " B");
+		System.out.println("Block size : " + BLOCK_SIZE + " B");
 
 	}
 
@@ -193,16 +194,16 @@ public class Init
 
 		f = new File(inputFile);
 
-		System.out.println(inputFile + " : " + f.length());
+		System.out.println(inputFile + " : " + f.length() + " B");
 		noOfRecordsInFile = f.length() / sizeOfRecord;
-		System.out.println("Number of records in file : " + noOfRecordsInFile + "(on average)");
+		System.out.println("Number of records in file : " + noOfRecordsInFile + " (on average)");
 
 		if(noOfRecordsInFile / BLOCK_SIZE > BLOCK_SIZE  - 1) {
 			System.err.println("Input file is large. Can cause 3 phase merge sort\nExiting...");
 			System.exit(0);
 		}
 
-		System.out.println("Total intermediate files that can be made : " + (f.length() / sizeOfRecord) / BLOCK_SIZE);
+		//System.out.println("Total intermediate files that can be made : " + ((f.length() / sizeOfRecord) / BLOCK_SIZE) + 1);
 
 		try {
 			bfr = new BufferedReader(new FileReader(new File(inputFile)));
@@ -212,6 +213,7 @@ public class Init
 			while((line = bfr.readLine()) != null ) {
 				if(lineCounter == BLOCK_SIZE - 1) {
 					blockCounter++;
+					System.out.println("Creating intermediate file : i_" + blockCounter);
 					intermediateFileList.add(new File(sortNCreateTempFile(blockList, blockCounter)));
 
 					//Reset the variable
@@ -224,6 +226,7 @@ public class Init
 			//Check if final lineCounter value is less than the BLOCK SIZE, then create the file for the remaining data 
 			if(lineCounter < BLOCK_SIZE - 1) {
 				blockCounter++;
+				System.out.println("Creating intermediate file : i_" + blockCounter);
 				intermediateFileList.add(new File(sortNCreateTempFile(blockList, blockCounter)));
 				lineCounter = 0;
 			}
@@ -233,14 +236,14 @@ public class Init
 		}
 
 		//Printing the file list
-		System.out.println("Temporary file list : ");
+		/*System.out.println("Temporary file list : ");
 		for(int i = 0; i < blockCounter; i++) {
 			System.out.println(intermediateFileList.get(i));
-		}
+		}*/
 
 		//Sort and merge the intermediate files
 		try {
-			System.out.println(mergeSortedFiles(intermediateFileList, new File(outputFile)));
+			mergeSortedFiles(intermediateFileList, new File(outputFile));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}		
@@ -332,8 +335,13 @@ public class Init
 
 		return BLOCK_SIZE;
 	}	
+	
+	private static String getColumnName(int i) {
+		
+		return tableColNames.get(i);
+	}
 
-	public static int mergeSortedFiles(List<File> files, File outputfile) throws IOException {
+	public static void mergeSortedFiles(List<File> files, File outputfile) throws IOException {
 
 		PriorityQueue<BinaryFileBuffer> pq = new PriorityQueue<BinaryFileBuffer>((int)getBlockSize() - 1, 
 				new Comparator<BinaryFileBuffer>() {
@@ -386,7 +394,17 @@ public class Init
 			while(pq.size() > 0) {
 				BinaryFileBuffer bfb = pq.poll();
 				String r = bfb.pop();
-				fbw.write(r);
+				//TODO
+				String colList[] = r.split(",");
+				StringBuilder output = new StringBuilder();
+				for(int i = 0; i < colList.length; i++) {
+					if(outputColumnList.contains(getColumnName(i)))	{
+						output.append(colList[i] + ",");
+					}
+				}
+				fbw.write(output.substring(0, output.length() - 1));
+				output.setLength(0);
+				//fbw.write(r);
 				fbw.newLine();
 				++rowcounter;
 				if(bfb.empty()) {
@@ -403,6 +421,5 @@ public class Init
 			for(BinaryFileBuffer bfb : pq ) 
 				bfb.close();
 		}
-		return rowcounter;
 	}	
 }
